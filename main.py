@@ -96,7 +96,7 @@ class profilemodal(discord.ui.Modal, title="Profile"):
         writedata(data)
         await interaction.response.send_message("Profile Saved!", ephemeral=True)
 
-@bot.tree.command(name="setprofile")
+@bot.tree.command(name="setprofile", description="Set your profile!")
 async def setprofile(interaction: discord.Interaction):
     uid = str(interaction.user.id)
     register(uid)
@@ -129,6 +129,8 @@ async def list(interaction: discord.Interaction, page:int = 1):
     leadembed = discord.Embed(title="Current Participants", description=description)
     await interaction.response.send_message(embed=leadembed)
 
+
+
 def has_role(roleid: int):
     async def predicate(interaction: discord.Interaction):
         role = discord.utils.get(interaction.user.roles, id=roleid)
@@ -149,14 +151,10 @@ class electionview(discord.ui.View):
         writedata(data)
         await bot.get_channel(config["channel_id"]).send(f"New Election started by <@{interaction.user.id}>!")
 
-    
-
 @bot.tree.command(name="election", description="Control elections! (Admin only!)") # only id in config json allowed
 @has_role(config["role_id"])
 async def election(interaction: discord.Interaction, function: str):
-        
         match function:
-
             case "create":
                 print()
                 await interaction.response.send_message(content="Are you sure? This will delete all ongoing elections and zero everyones' votes.", view=electionview(), ephemeral=True)
@@ -194,6 +192,15 @@ async def vote(interaction: discord.Interaction, user: discord.User):
     writedata(data)
 
     await interaction.response.send_message(f"Voted for <@{user2id}>!")
+
+@bot.tree.command(name="help", description="List all the commands!")
+async def help(interaction: discord.Interaction):
+    helpembed = discord.Embed(title="Commands!")
+
+    for i in bot.tree.get_commands():
+        helpembed.add_field(name="/"+i.name, value=i.description)
+
+    await interaction.response.send_message(embed=helpembed)
 
 @bot.event
 async def on_ready():
