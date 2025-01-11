@@ -13,7 +13,6 @@ BOT_TOKEN = str(os.environ.get("BOT_TOKEN"))
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
 
 
-
 with open("config.json", "r") as infile:
     config =  json.load(infile) or {}
 
@@ -39,7 +38,7 @@ def register(uid):
         writedata(data)
 
 
-@bot.tree.command(name="profile", description="View your profile")
+@bot.tree.command(name="profile", description="View your or someone elses' profile")
 async def profile(interaction: discord.Interaction, user: discord.User = None):
     try:
         uid = str(user.id)
@@ -48,17 +47,20 @@ async def profile(interaction: discord.Interaction, user: discord.User = None):
     register(uid)
     data = readdata()
     embed = discord.Embed()
+    userobj = await bot.fetch_user(uid)
 
     aboutme = data[uid]["profile"]["aboutme"]
     reason = data[uid]["profile"]["reason"]
     age = data[uid]["profile"]["age"]
 
-    embed.add_field(name="Name", value=interaction.user.name)
+    embed.add_field(name="Name", value= userobj.name)
     embed.add_field(name="Age", value=age)
     embed.add_field(name="About me", value=aboutme)
     embed.add_field(name="Why you should vote for me", value=reason)
-
-    embed.set_thumbnail(url=interaction.user.avatar.url)
+    try:
+        embed.set_thumbnail(url=userobj.avatar.url)
+    except:
+        return await interaction.response.send_message("Error! Is the target user a bot?", ephemeral=True)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 class profilemodal(discord.ui.Modal, title="Profile"):
@@ -112,7 +114,7 @@ async def list(interaction: discord.Interaction, page:int = 1):
 
 
     if page > pageamnt:
-        return await interaction.response.send_message(f"Please enter a lower page number! Maximum is {pageamnt}")
+        return await interaction.response.send_message(f"Please enter a lower page number! Maximum is {pageamnt}", ephemeral=True)
     
     description = ""
 
@@ -135,7 +137,7 @@ def has_role(roleid: int):
     async def predicate(interaction: discord.Interaction):
         role = discord.utils.get(interaction.user.roles, id=roleid)
         if role is None:
-            await interaction.response.send_message("nuh uh")
+            await interaction.response.send_message("You dont have the permission for that!")
             return False
         return True
     return app_commands.check(predicate)
@@ -146,14 +148,21 @@ class electionview(discord.ui.View):
         data = readdata()
         data["voteable"] = False
         for i in data:
+            
             if i != "voteable":
+                data[i]["voted"] = False
                 data[i]["votes"] = 0
         writedata(data)
+        await interaction.response.send_message("Election made!", ephemeral=True)
         await bot.get_channel(config["channel_id"]).send(f"New Election started by <@{interaction.user.id}>!")
 
 @bot.tree.command(name="election", description="Control elections! (Admin only!)") # only id in config json allowed
 @has_role(config["role_id"])
 async def election(interaction: discord.Interaction, function: str):
+        register(interaction.user.id)
+        if function not in ["create", "end", "open"]:
+            return await interaction.response.send_message("Unknown function! Please use create, open or end ! Create resets all the votes and makes a new election, end ends the current going election and announces the winner, open opens the participants to be voted on", ephemeral=True)
+
         match function:
             case "create":
                 print()
@@ -166,17 +175,22 @@ async def election(interaction: discord.Interaction, function: str):
                 writedata(data)
                 del data["voteable"]
                 print(data.items())
+                await interaction.response.send_message("Ended!", ephemeral=True)
                 await bot.get_channel(config["channel_id"]).send(f"Election ended! <@{sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0][0]}> Won!")
             
             case "open":
                 data = readdata()
                 data["voteable"]  = True
                 writedata(data)
+                await interaction.response.send_message("Opened!", ephemeral=True)
                 await bot.get_channel(config["channel_id"]).send("Election is now open!")
-     
+            
+            
+
 
 @bot.tree.command(name="vote", description="Vote for someone")
 async def vote(interaction: discord.Interaction, user: discord.User):
+    register(interaction.user.id)
     data = readdata()
     if data["voteable"] == False:
         return await interaction.response.send_message("You can't vote yet! Please wait for the election to be opened!", ephemeral=True)
@@ -185,6 +199,10 @@ async def vote(interaction: discord.Interaction, user: discord.User):
         return await interaction.response.send_message("You've already voted!", ephemeral=True)
 
     user2id = str(user.id)
+    register(user2id)
+    data = readdata()
+    #if data[user2id]["profile"]["aboutme"] == "":
+    #    return await interaction.response.send_message("The participant needs to set their profile!", ephemeral=True)
 
     data[user2id]["votes"] += 1
     data[str(interaction.user.id)]["voted"] = True
@@ -200,7 +218,7 @@ async def help(interaction: discord.Interaction):
     for i in bot.tree.get_commands():
         helpembed.add_field(name="/"+i.name, value=i.description)
 
-    await interaction.response.send_message(embed=helpembed)
+    await interaction.response.send_message(embed=helpembed, ephemeral=True)
 
 @bot.event
 async def on_ready():
