@@ -16,6 +16,14 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
 with open("config.json", "r") as infile:
     config =  json.load(infile) or {}
 
+def readelections():
+    with open("elections.json", "r") as infile:
+        return json.load(infile)
+    
+def writeelections(elections):
+    with open("elections.json", "w") as outfile:
+        json.dump(elections, outfile, indent=4)
+
 def readdata():
     with open("data.json", "r") as infile:
         data = json.load(infile)
@@ -36,7 +44,6 @@ def register(uid):
             "age": ""
         }
         writedata(data)
-
 
 @bot.tree.command(name="profile", description="View your or someone elses' profile")
 async def profile(interaction: discord.Interaction, user: discord.User = None):
@@ -154,7 +161,7 @@ class electionview(discord.ui.View):
                 data[i]["votes"] = 0
         writedata(data)
         await interaction.response.send_message("Election made!", ephemeral=True)
-        await bot.get_channel(config["results_channel_id"]).send(f"New Election created by <@{interaction.user.id}>!")
+        await bot.get_channel(config["results_channel_id"]).send(f"<@{config["election_ping_role_id"]}>!  New Election created by <@{interaction.user.id}>!")
 
 @bot.tree.command(name="election", description="Control elections! (Admin only!)") # only id in config.json allowed
 @has_role(config["role_id"])
@@ -173,13 +180,23 @@ async def election(interaction: discord.Interaction, function: str):
                 data = readdata() 
                 data["voteable"] = False
                 writedata(data)
-                del data["voteable"]
+                toptopthree = {}
+                # del data["voteable"]
                 print(data.items())
+                sortedlist = sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0]
+                
+                
+                print(sortedlist[0])
+                print(sortedlist[1])
+                print(sortedlist[2])
+
                 await interaction.response.send_message("Ended!", ephemeral=True)
                 await bot.get_channel(config["results_channel_id"]).send(f"Election ended! <@{sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0][0]}> Won!")
             
             case "open":
                 data = readdata()
+                if data["voteable"]:
+                    return await interaction.response.send_message("Election already open!", ephemeral=True)
                 data["voteable"]  = True
                 writedata(data)
                 await interaction.response.send_message("Opened!", ephemeral=True)
@@ -239,11 +256,12 @@ async def anonymous(interaction: discord.Interaction):
     data[uid]["anonymous"] = True
     await interaction.response.send_message("Anonymous voting turned on! Nobody will be able to see your vote!", ephemeral=True)
 
+
 '''
 More Features to add:
-- List of who voted for who (public maybe top 3, rest can check themselves with a command)
-- Election ping
+- List of who voted for who (together with election history, probably will have to give elections IDs, still, saving in json might be bad, so probaby save top 3 peoples list of votes)
 - Election history (might be not that good to store the data on who voted for who for all past elections in a json)
+
 '''
 
 @bot.event
