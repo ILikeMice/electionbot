@@ -29,7 +29,7 @@ def register(uid):
     uid = str(uid)
     data = readdata()
     if uid not in data:
-        data[uid] = {"votes": 0, "voted": False}
+        data[uid] = {"votes": 0, "voted": False, "anonymous": False, "usersvoted": []}
         data[uid]["profile"] = {
             "aboutme": "",
             "reason": "",
@@ -154,14 +154,14 @@ class electionview(discord.ui.View):
                 data[i]["votes"] = 0
         writedata(data)
         await interaction.response.send_message("Election made!", ephemeral=True)
-        await bot.get_channel(config["channel_id"]).send(f"New Election started by <@{interaction.user.id}>!")
+        await bot.get_channel(config["results_channel_id"]).send(f"New Election created by <@{interaction.user.id}>!")
 
-@bot.tree.command(name="election", description="Control elections! (Admin only!)") # only id in config json allowed
+@bot.tree.command(name="election", description="Control elections! (Admin only!)") # only id in config.json allowed
 @has_role(config["role_id"])
 async def election(interaction: discord.Interaction, function: str):
         register(interaction.user.id)
         if function not in ["create", "end", "open"]:
-            return await interaction.response.send_message("Unknown function! Please use create, open or end ! Create resets all the votes and makes a new election, end ends the current going election and announces the winner, open opens the participants to be voted on", ephemeral=True)
+            return await interaction.response.send_message('Unknown function! Please use "create", "open" or "end" ! create resets all the votes and makes a new election, end ends the current going election and announces the winner, open lets the users vote for others!', ephemeral=True)
 
         match function:
             case "create":
@@ -176,22 +176,22 @@ async def election(interaction: discord.Interaction, function: str):
                 del data["voteable"]
                 print(data.items())
                 await interaction.response.send_message("Ended!", ephemeral=True)
-                await bot.get_channel(config["channel_id"]).send(f"Election ended! <@{sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0][0]}> Won!")
+                await bot.get_channel(config["results_channel_id"]).send(f"Election ended! <@{sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0][0]}> Won!")
             
             case "open":
                 data = readdata()
                 data["voteable"]  = True
                 writedata(data)
                 await interaction.response.send_message("Opened!", ephemeral=True)
-                await bot.get_channel(config["channel_id"]).send("Election is now open!")
-            
-            
+                await bot.get_channel(config["results_channel_id"]).send("Election is now open!")
+
 
 
 @bot.tree.command(name="vote", description="Vote for someone")
 async def vote(interaction: discord.Interaction, user: discord.User):
     register(interaction.user.id)
     data = readdata()
+    anonymous = data[str(interaction.user.id)]["anonymous"]
     if data["voteable"] == False:
         return await interaction.response.send_message("You can't vote yet! Please wait for the election to be opened!", ephemeral=True)
     
@@ -201,15 +201,21 @@ async def vote(interaction: discord.Interaction, user: discord.User):
     user2id = str(user.id)
     register(user2id)
     data = readdata()
-    #if data[user2id]["profile"]["aboutme"] == "":
+    # uncomment the lines below if you want profile required, this was for testing
+    #if data[user2id]["profile"]["aboutme"] == "": 
     #    return await interaction.response.send_message("The participant needs to set their profile!", ephemeral=True)
 
     data[user2id]["votes"] += 1
+    data[user2id]["usersvoted"].append(f"{interaction.user.id} ({interaction.user.name})")
     data[str(interaction.user.id)]["voted"] = True
 
     writedata(data)
-
-    await interaction.response.send_message(f"Voted for <@{user2id}>!")
+    if anonymous:
+        await bot.get_channel(config["votes_channel_id"]).send(f"<@{interaction.user.id}> voted for <@{user2id}>!")
+    else:
+        await bot.get_channel(config["votes_channel_id"]).send(f"Anonymous vote for <@{user2id}>!")
+    
+    await interaction.response.send_message(f"Voted for <@{user2id}>!", ephemeral=True)
 
 @bot.tree.command(name="help", description="List all the commands!")
 async def help(interaction: discord.Interaction):
@@ -219,6 +225,26 @@ async def help(interaction: discord.Interaction):
         helpembed.add_field(name="/"+i.name, value=i.description)
 
     await interaction.response.send_message(embed=helpembed, ephemeral=True)
+
+@bot.tree.command(name="anonymous", description="Toggle anonymous voting! (Off by default)")
+async def anonymous(interaction: discord.Interaction):
+    register(interaction.user.id)
+    data = readdata()
+    uid = str(interaction.user.id)
+    anonymous = data[uid]["anonymous"]
+    if anonymous:
+        data[uid]["anonymous"] = False
+        return await interaction.response.send_message("Anonymous voting turned off! Your vote is now public!", ephemeral=True)
+
+    data[uid]["anonymous"] = True
+    await interaction.response.send_message("Anonymous voting turned on! Nobody will be able to see your vote!", ephemeral=True)
+
+'''
+More Features to add:
+- List of who voted for who (public maybe top 3, rest can check themselves with a command)
+- Election ping
+- Election history (might be not that good to store the data on who voted for who for all past elections in a json)
+'''
 
 @bot.event
 async def on_ready():
