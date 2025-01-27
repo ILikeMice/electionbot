@@ -1,3 +1,38 @@
 {
-    "voteable": true
+    "771786441617047582": {
+        "votes": 0,
+        "voted": [
+            "0",
+            "1"
+        ],
+        "anonymous": false,
+        "usersvoted": [],
+        "profile": {
+            "aboutme": "",
+            "reason": "",
+            "age": ""
+        }
+    },
+    "1326647895147155476": {
+        "votes": 1,
+        "voted": [],
+        "anonymous": false,
+        "usersvoted": [],
+        "profile": {
+            "aboutme": "",
+            "reason": "",
+            "age": ""
+        }
+    },
+    "1291333928493383701": {
+        "votes": 1,
+        "voted": [],
+        "anonymous": false,
+        "usersvoted": [],
+        "profile": {
+            "aboutme": "",
+            "reason": "",
+            "age": ""
+        }
+    }
 }

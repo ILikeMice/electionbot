@@ -37,7 +37,7 @@ def register(uid):
     uid = str(uid)
     data = readdata()
     if uid not in data:
-        data[uid] = {"votes": 0, "voted": False, "anonymous": False, "usersvoted": []}
+        data[uid] = {"votes": 0, "voted": [], "anonymous": False, "usersvoted": []}
         data[uid]["profile"] = {
             "aboutme": "",
             "reason": "",
@@ -114,7 +114,6 @@ async def setprofile(interaction: discord.Interaction):
 @bot.tree.command(name="list", description="List all current participants!")
 async def list(interaction: discord.Interaction, page:int = 1):
     data = readdata()
-    del data["voteable"]
     print(data.items())
     sorteddata = sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)
     pageamnt = math.ceil(len(sorteddata)/10)
@@ -153,13 +152,11 @@ class electionview(discord.ui.View):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def confirmbtn(self, interaction: discord.Interaction, button: discord.ui.Button):
         data = readdata()
-        data["voteable"] = False
-        for i in data:
-            
-            if i != "voteable":
-                data[i]["voted"] = False
-                data[i]["votes"] = 0
-        writedata(data)
+        elections = readelections()
+
+        elections[len(elections.items())] = {"voteable": False}
+
+        writeelections(elections)
         await interaction.response.send_message("Election made!", ephemeral=True)
         await bot.get_channel(config["results_channel_id"]).send(f"<@{config["election_ping_role_id"]}>!  New Election created by <@{interaction.user.id}>!")
 
@@ -178,27 +175,26 @@ async def election(interaction: discord.Interaction, function: str):
             case "end":
                 print()
                 data = readdata() 
-                data["voteable"] = False
+                elections = readelections()
+
+                elections[str(len(elections.items()) - 1)]["voteable"] = False
+
                 writedata(data)
-                toptopthree = {}
-                # del data["voteable"]
+                writeelections(elections)
+                
                 print(data.items())
-                sortedlist = sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0]
-                
-                
-                print(sortedlist[0])
-                print(sortedlist[1])
-                print(sortedlist[2])
 
                 await interaction.response.send_message("Ended!", ephemeral=True)
                 await bot.get_channel(config["results_channel_id"]).send(f"Election ended! <@{sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)[0][0]}> Won!")
             
             case "open":
                 data = readdata()
-                if data["voteable"]:
+                elections = readelections()
+                if elections[str(len(elections.items()) - 1)]["voteable"] == True:
                     return await interaction.response.send_message("Election already open!", ephemeral=True)
-                data["voteable"]  = True
+                elections[str(len(elections.items()) - 1)]["voteable"]  = True
                 writedata(data)
+                writeelections(elections)
                 await interaction.response.send_message("Opened!", ephemeral=True)
                 await bot.get_channel(config["results_channel_id"]).send("Election is now open!")
 
@@ -208,25 +204,32 @@ async def election(interaction: discord.Interaction, function: str):
 async def vote(interaction: discord.Interaction, user: discord.User):
     register(interaction.user.id)
     data = readdata()
+    elections = readelections()
     anonymous = data[str(interaction.user.id)]["anonymous"]
-    if data["voteable"] == False:
+    if elections[str(len(elections.items()) - 1)]["voteable"] == False:
         return await interaction.response.send_message("You can't vote yet! Please wait for the election to be opened!", ephemeral=True)
     
-    if data[str(interaction.user.id)]["voted"] == True:
-        return await interaction.response.send_message("You've already voted!", ephemeral=True)
+    if str(len(elections.items()) - 1) in data[str(interaction.user.id)]["voted"]:
+        return await interaction.response.send_message("You've already voted in this election!", ephemeral=True)
 
     user2id = str(user.id)
     register(user2id)
     data = readdata()
-    # uncomment the lines below if you want profile required, this was for testing
+
+    # uncomment the lines below if you want profile required, this was commented for testing 
     #if data[user2id]["profile"]["aboutme"] == "": 
     #    return await interaction.response.send_message("The participant needs to set their profile!", ephemeral=True)
 
     data[user2id]["votes"] += 1
-    data[user2id]["usersvoted"].append(f"{interaction.user.id} ({interaction.user.name})")
-    data[str(interaction.user.id)]["voted"] = True
+    
+    elections[str(len(elections.items()) - 1)][user2id] = {"usersvoted": []}
+    elections[str(len(elections.items()) - 1)][user2id]["usersvoted"].append(f"{interaction.user.id} ({interaction.user.name})")
+    
+    data[str(interaction.user.id)]["voted"].append(str(len(elections.items()) - 1))
 
     writedata(data)
+    writeelections(elections)
+
     if anonymous:
         await bot.get_channel(config["votes_channel_id"]).send(f"<@{interaction.user.id}> voted for <@{user2id}>!")
     else:
@@ -256,7 +259,11 @@ async def anonymous(interaction: discord.Interaction):
     data[uid]["anonymous"] = True
     await interaction.response.send_message("Anonymous voting turned on! Nobody will be able to see your vote!", ephemeral=True)
 
+@bot.tree.command(name="electionresults", description="View the results of any election by its ID!")
+async def electionresults(interaction: discord.Interaction, electionid: int = -1):
+    elections = readelections()
 
+    electionembed = discord.Embed()
 '''
 More Features to add:
 - List of who voted for who (together with election history, probably will have to give elections IDs, still, saving in json might be bad, so probaby save top 3 peoples list of votes)
