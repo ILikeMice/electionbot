@@ -264,6 +264,35 @@ async def electionresults(interaction: discord.Interaction, electionid: int = -1
     elections = readelections()
 
     electionembed = discord.Embed()
+    if electionid == -1:
+        electionembed.title = "Current / last Election results"
+        uservotes = {}
+        elections = readelections()
+
+        for i in elections[str(len(elections.items)-1)]["1"].items():
+            if i[0] != "voteable":
+                uservotes[i[0]] = len(i[1]["usersvoted"])
+                print(uservotes)
+        sortedvotes = sorted(uservotes, key=lambda x: x[1])
+        electionembed.description = f"Winner: <@{sortedvotes[0][0]} with {sortedvotes[0][1]} \n Second Place: {sortedvotes[1][0]}"
+
+    if electionid > -1:
+        electionembed.title = f"Election {electionid} results"
+        totalvotes = 0
+        uservotes = {}
+        elections = readelections()
+
+        for i in elections[str(electionid)]["1"].items():
+            if i[0] != "voteable":
+                uservotes[i[0]] = len(i[1]["usersvoted"])
+                totalvotes += len(i[1]["usersvoted"])
+                print(uservotes)
+        sortedvotes = sorted(uservotes, key=lambda x: x[1])
+        electionembed.description = f"{f"Winner: <@{sortedvotes[0][0]} with {sortedvotes[0][1]}" or ""} \n Second Place: {sortedvotes[1][0]}\n Total Votes: {totalvotes}"
+    
+    await interaction.response.send_message(embed=electionembed)
+
+
 '''
 More Features to add:
 - List of who voted for who (together with election history, probably will have to give elections IDs, still, saving in json might be bad, so probaby save top 3 peoples list of votes)
