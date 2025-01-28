@@ -263,32 +263,35 @@ async def anonymous(interaction: discord.Interaction):
 async def electionresults(interaction: discord.Interaction, electionid: int = -1):
     elections = readelections()
 
-    electionembed = discord.Embed()
+    if electionid > len(elections.items()) - 1:
+        return await interaction.response.send_message("Invalid Election ID!", ephemeral=True)
     if electionid == -1:
-        electionembed.title = "Current / last Election results"
-        uservotes = {}
-        elections = readelections()
+        selectedid = str(len(elections.items()) - 1)
+    else:
+        selectedid = str(electionid)
+    electionembed = discord.Embed(description="")
 
-        for i in elections[str(len(elections.items)-1)]["1"].items():
-            if i[0] != "voteable":
-                uservotes[i[0]] = len(i[1]["usersvoted"])
-                print(uservotes)
-        sortedvotes = sorted(uservotes, key=lambda x: x[1])
-        electionembed.description = f"Winner: <@{sortedvotes[0][0]} with {sortedvotes[0][1]} \n Second Place: {sortedvotes[1][0]}"
 
-    if electionid > -1:
-        electionembed.title = f"Election {electionid} results"
-        totalvotes = 0
-        uservotes = {}
-        elections = readelections()
+    electionembed.title = f"Election {selectedid} Results"
+    uservotes = {}
+    totalvotes = 0
+    elections = readelections()
 
-        for i in elections[str(electionid)]["1"].items():
-            if i[0] != "voteable":
-                uservotes[i[0]] = len(i[1]["usersvoted"])
-                totalvotes += len(i[1]["usersvoted"])
-                print(uservotes)
-        sortedvotes = sorted(uservotes, key=lambda x: x[1])
-        electionembed.description = f"{f"Winner: <@{sortedvotes[0][0]} with {sortedvotes[0][1]}" or ""} \n Second Place: {sortedvotes[1][0]}\n Total Votes: {totalvotes}"
+    for i in elections[str(len(elections.items())-1)].items():
+        if i[0] != "voteable":
+            uservotes[i[0]] = len(i[1]["usersvoted"])
+            totalvotes += len(i[1]["usersvoted"])
+            print(uservotes)
+    sortedvotes = sorted(uservotes.items())
+    print(sortedvotes)
+    try:
+        electionembed.description += f"**Winner:** <@{sortedvotes[0][0]}> with **{sortedvotes[0][1]}** vote(s) \n"
+        electionembed.description += f"**Second Place:** <@{sortedvotes[1][0]}> with **{sortedvotes[1][1]}** vote(s) \n" or ""
+        electionembed.description += f"Third Place: <@{sortedvotes[2][0]}> with **{sortedvotes[2][1]}** vote(s) \n" or ""
+    except:
+        pass
+    electionembed.description += f"**Total votes:** {totalvotes}"
+
     
     await interaction.response.send_message(embed=electionembed)
 

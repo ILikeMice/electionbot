@@ -1,7 +1,12 @@
 {
     "0": {
         "voteable": true,
-        "1291333928493383701": {
+        "771786441617047582": {
+            "usersvoted": [
+                "771786441617047582 (ilikemice)"
+            ]
+        },
+        "wadawd": {
             "usersvoted": [
                 "771786441617047582 (ilikemice)"
             ]
@@ -11,7 +16,59 @@
         "voteable": true,
         "1326647895147155476": {
             "usersvoted": [
+                "771786441617047582 (ilikemice)",
+                "445566778899001122 (newuser3)",
+                "556677889900112233 (newuser4)"
+            ]
+        },
+        "newvote1": {
+            "usersvoted": [
                 "771786441617047582 (ilikemice)"
+            ]
+        }
+    },
+    "2": {
+        "voteable": false,
+        "1357986421357986421": {
+            "usersvoted": [
+                "123456789012345678 (testuser1)",
+                "987654321098765432 (testuser2)"
+            ]
+        },
+        "newvote2": {
+            "usersvoted": [
+                "123456789012345678 (testuser1)"
+            ]
+        }
+    },
+    "3": {
+        "voteable": true,
+        "1468523697412589630": {
+            "usersvoted": [
+                "112233445566778899 (testuser3)",
+                "889900112233445566 (newuser7)",
+                "990011223344556677 (newuser8)"
+            ]
+        },
+        "newvote3": {
+            "usersvoted": [
+                "112233445566778899 (testuser3)"
+            ]
+        }
+    },
+    "4": {
+        "voteable": false,
+        "771786441617047582": {
+            "usersvoted": [
+                "223344556677889900 (testuser4)",
+                "334455667788990011 (testuser5)",
+                "001122334455667788 (newuser9)",
+                "112233445566778899 (newuser10)"
+            ]
+        },
+        "newvote4": {
+            "usersvoted": [
+                "223344556677889900 (testuser4)"
             ]
         }
     }
