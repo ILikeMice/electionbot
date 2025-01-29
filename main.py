@@ -112,30 +112,32 @@ async def setprofile(interaction: discord.Interaction):
     await interaction.response.send_modal(profilemodal())
 
 @bot.tree.command(name="list", description="List all current participants!")
-async def list(interaction: discord.Interaction, page:int = 1):
-    data = readdata()
-    print(data.items())
-    sorteddata = sorted(data.items(), key=lambda x: x[1]["votes"], reverse=True)
-    pageamnt = math.ceil(len(sorteddata)/10)
+async def list(interaction: discord.Interaction, page: int = 1):
+    elections = readelections()
+    current_election_id = str(len(elections) - 1)
+    current_election = elections[current_election_id]
 
+    if "voteable" in current_election:
+        del current_election["voteable"]
+
+    sorted_election = sorted(current_election.items(), key=lambda x: len(x[1]["usersvoted"]), reverse=True)
+    pageamnt = math.ceil(len(sorted_election) / 10)
 
     if page > pageamnt:
         return await interaction.response.send_message(f"Please enter a lower page number! Maximum is {pageamnt}", ephemeral=True)
-    
+
     description = ""
 
-    start = 1 + (page-1)*10
-    if len(sorteddata) >= 10+(page-1)*10:
-        end = 10+(page-1)*10
-    else:
-        end = len(sorteddata)
+    start = 1 + (page - 1) * 10
+    end = min(len(sorted_election), 10 + (page - 1) * 10)
 
-    for i in range(start-1,end):
-        description += f"**{i+1}.** <@{sorteddata[i][0]}>, {sorteddata[i][1]["votes"]} vote(s) \n"
-
+    for i in range(start - 1, end):
+        user_id = sorted_election[i][0]
+        votes = len(sorted_election[i][1]["usersvoted"])
+        description += f"**{i + 1}.** <@{user_id}>, {votes} vote(s) \n"
 
     leadembed = discord.Embed(title="Current Participants", description=description)
-    await interaction.response.send_message(embed=leadembed)
+    await interaction.response.send_message(embed=leadembed, ephemeral=True)
 
 
 
@@ -154,11 +156,14 @@ class electionview(discord.ui.View):
         data = readdata()
         elections = readelections()
 
+        for i in elections:
+            elections[i]["voteable"] = False
+
         elections[len(elections.items())] = {"voteable": False}
 
         writeelections(elections)
         await interaction.response.send_message("Election made!", ephemeral=True)
-        await bot.get_channel(config["results_channel_id"]).send(f"<@{config["election_ping_role_id"]}>!  New Election created by <@{interaction.user.id}>!")
+        await bot.get_channel(config["results_channel_id"]).send(f"<@&{config["election_ping_role_id"]}>!  New Election created by <@{interaction.user.id}>!")
 
 @bot.tree.command(name="election", description="Control elections! (Admin only!)") # only id in config.json allowed
 @has_role(config["role_id"])
@@ -196,8 +201,7 @@ async def election(interaction: discord.Interaction, function: str):
                 writedata(data)
                 writeelections(elections)
                 await interaction.response.send_message("Opened!", ephemeral=True)
-                await bot.get_channel(config["results_channel_id"]).send("Election is now open!")
-
+                await bot.get_channel(config["results_channel_id"]).send(f"<@&{config["election_ping_role_id"]}>! Election is now open!")
 
 
 @bot.tree.command(name="vote", description="Vote for someone")
@@ -205,7 +209,6 @@ async def vote(interaction: discord.Interaction, user: discord.User):
     register(interaction.user.id)
     data = readdata()
     elections = readelections()
-    anonymous = data[str(interaction.user.id)]["anonymous"]
     if elections[str(len(elections.items()) - 1)]["voteable"] == False:
         return await interaction.response.send_message("You can't vote yet! Please wait for the election to be opened!", ephemeral=True)
     
@@ -230,7 +233,7 @@ async def vote(interaction: discord.Interaction, user: discord.User):
     writedata(data)
     writeelections(elections)
 
-    if anonymous:
+    if data[str(interaction.user.id)]["anonymous"] == False:
         await bot.get_channel(config["votes_channel_id"]).send(f"<@{interaction.user.id}> voted for <@{user2id}>!")
     else:
         await bot.get_channel(config["votes_channel_id"]).send(f"Anonymous vote for <@{user2id}>!")
@@ -248,16 +251,15 @@ async def help(interaction: discord.Interaction):
 
 @bot.tree.command(name="anonymous", description="Toggle anonymous voting! (Off by default)")
 async def anonymous(interaction: discord.Interaction):
-    register(interaction.user.id)
     data = readdata()
     uid = str(interaction.user.id)
-    anonymous = data[uid]["anonymous"]
-    if anonymous:
+    if data[uid]["anonymous"] == True:
         data[uid]["anonymous"] = False
-        return await interaction.response.send_message("Anonymous voting turned off! Your vote is now public!", ephemeral=True)
-
-    data[uid]["anonymous"] = True
-    await interaction.response.send_message("Anonymous voting turned on! Nobody will be able to see your vote!", ephemeral=True)
+        await interaction.response.send_message("Anonymous voting turned off! Your vote is now public!", ephemeral=True)
+    else:
+        data[uid]["anonymous"] = True
+        await interaction.response.send_message("Anonymous voting turned on! Nobody will be able to see your vote!", ephemeral=True)
+    writedata(data)
 
 @bot.tree.command(name="electionresults", description="View the results of any election by its ID!")
 async def electionresults(interaction: discord.Interaction, electionid: int = -1):
@@ -277,7 +279,7 @@ async def electionresults(interaction: discord.Interaction, electionid: int = -1
     totalvotes = 0
     elections = readelections()
 
-    for i in elections[str(len(elections.items())-1)].items():
+    for i in elections[selectedid].items():
         if i[0] != "voteable":
             uservotes[i[0]] = len(i[1]["usersvoted"])
             totalvotes += len(i[1]["usersvoted"])
@@ -291,9 +293,33 @@ async def electionresults(interaction: discord.Interaction, electionid: int = -1
     except:
         pass
     electionembed.description += f"**Total votes:** {totalvotes}"
-
     
-    await interaction.response.send_message(embed=electionembed)
+    await interaction.response.send_message(embed=electionembed, ephemeral=True)
+
+@bot.tree.command(name="listelections", description="View all Elections and their status!")
+async def listelections(interaction: discord.Interaction):
+    elections = readelections()
+    electionsembed = discord.Embed(title="Elections!", description="")
+
+    for i in reversed(elections.items()) :
+        electionsembed.description += f"**Election {i[0]}** - {"Open" if i[1]["voteable"] else "Closed/Ended"} \n"
+
+    await interaction.response.send_message(embed=electionsembed, ephemeral=True)
+
+@bot.tree.command(name="getallvotes", description="Get a list of votes for an Election!")
+async def getallvotes(interaction: discord.Interaction, electionid: int):
+    elections = readelections()
+    res = {}
+    for i in elections[str(electionid)].items():
+        if i[0] != "voteable":
+            resuser = str(i[0])
+            try:
+                resuser += bot.get_user(int(i[0])).name
+            except: 
+                pass
+            res[resuser] = i[1]["usersvoted"]
+    
+    await interaction.response.send_message(f"```{res}```", ephemeral=True)
 
 
 '''
